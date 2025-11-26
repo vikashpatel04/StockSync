@@ -39,7 +39,7 @@ const Settings = () => {
             const values = form.getFieldsValue(['user', 'password', 'server', 'database', 'options']);
             await axios.post('/api/db/test', values);
             messageApi.success('Connection successful!');
-            fetchTables(); // Pre-fetch tables if successful
+            fetchTables(values); // Pre-fetch tables if successful
             return true;
         } catch (error) {
             messageApi.error('Connection failed: ' + (error.response?.data?.error || error.message));
@@ -49,9 +49,14 @@ const Settings = () => {
         }
     };
 
-    const fetchTables = async () => {
+    const fetchTables = async (config = null) => {
         try {
-            const response = await axios.get('/api/db/tables');
+            let response;
+            if (config) {
+                response = await axios.post('/api/db/tables', config);
+            } else {
+                response = await axios.get('/api/db/tables');
+            }
             setTables(response.data);
         } catch (error) {
             console.error('Error fetching tables:', error);
@@ -60,7 +65,8 @@ const Settings = () => {
 
     const handleTableChange = async (table) => {
         try {
-            const response = await axios.get(`/api/db/columns/${table}`);
+            const values = form.getFieldsValue(['user', 'password', 'server', 'database', 'options']);
+            const response = await axios.post('/api/db/columns', { table, config: values });
             setColumns(response.data);
         } catch (error) {
             console.error('Error fetching columns:', error);

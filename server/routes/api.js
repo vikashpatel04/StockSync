@@ -69,6 +69,17 @@ router.get('/db/tables', async (req, res) => {
     }
 });
 
+router.post('/db/tables', async (req, res) => {
+    try {
+        const pool = await new db.sql.ConnectionPool(req.body).connect();
+        const result = await pool.request().query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'");
+        await pool.close();
+        res.json(result.recordset.map(row => row.TABLE_NAME));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/db/columns/:table', async (req, res) => {
     try {
         const table = req.params.table;
@@ -78,6 +89,22 @@ router.get('/db/columns/:table', async (req, res) => {
         }
 
         const result = await db.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${table}'`);
+        res.json(result.recordset.map(row => row.COLUMN_NAME));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/db/columns', async (req, res) => {
+    try {
+        const { table, config } = req.body;
+        if (!/^[a-zA-Z0-9_]+$/.test(table)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+
+        const pool = await new db.sql.ConnectionPool(config).connect();
+        const result = await pool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${table}'`);
+        await pool.close();
         res.json(result.recordset.map(row => row.COLUMN_NAME));
     } catch (error) {
         res.status(500).json({ error: error.message });
