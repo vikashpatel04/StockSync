@@ -447,9 +447,9 @@ SOFTWARE.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/stocksync/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/stocksync/discussions)
-- **Email**: support@stocksync.com
+- **Issues**: [GitHub Issues](https://github.com/vikashpatel04/stocksync/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/vikashpatel04/stocksync/discussions)
+- **Email**: vikashpatel.d0414@gmail.com
 
 ---
 
