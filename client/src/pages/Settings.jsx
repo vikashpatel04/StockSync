@@ -77,7 +77,7 @@ const Settings = () => {
                 password: values.password,
                 server: values.server,
                 database: values.database,
-                options: { encrypt: true, trustServerCertificate: true } // Default options
+                options: values.options || { encrypt: false, trustServerCertificate: true }
             };
 
             await axios.post('/api/settings', {
@@ -124,6 +124,12 @@ const Settings = () => {
                     </Form.Item>
                     <Form.Item name="password" label="Password" rules={[{ required: true }]}>
                         <Input.Password />
+                    </Form.Item>
+                    <Form.Item name={['options', 'encrypt']} valuePropName="checked" label="Encrypt Connection (SSL)">
+                        <Switch />
+                    </Form.Item>
+                    <Form.Item name={['options', 'trustServerCertificate']} valuePropName="checked" initialValue={true} hidden>
+                        <Switch />
                     </Form.Item>
                     <Button type="dashed" onClick={handleTestConnection} loading={loading} block>
                         Test Connection

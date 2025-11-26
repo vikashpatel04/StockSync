@@ -10,7 +10,7 @@ let dbConfig = {
     server: '',
     database: '',
     options: {
-        encrypt: true, // Use this if you're on Azure
+        encrypt: false, // Set to false for local dev / on-prem servers. Set to true for Azure.
         trustServerCertificate: true // Change to true for local dev / self-signed certs
     }
 };
