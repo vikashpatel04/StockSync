@@ -1,19 +1,32 @@
 const sql = require('mssql');
+const fs = require('fs');
+const path = require('path');
+
+const CONFIG_FILE = path.join(__dirname, 'config.json');
 
 let pool = null;
 let mockMode = false; // Default to false, can be toggled via settings
 
-// In-memory storage for settings (in a real app, this might be a file or another DB)
+// Load config from file if exists, otherwise use hardcoded defaults
 let dbConfig = {
-    user: '',
-    password: '',
-    server: '',
-    database: '',
+    user: 'sa',
+    password: 'NMINFOTECH',
+    server: '192.168.0.102',
+    database: 'DLTT2526',
     options: {
-        encrypt: false, // Set to false for local dev / on-prem servers. Set to true for Azure.
-        trustServerCertificate: true // Change to true for local dev / self-signed certs
+        encrypt: false,
+        trustServerCertificate: true
     }
 };
+
+try {
+    if (fs.existsSync(CONFIG_FILE)) {
+        const savedConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+        dbConfig = { ...dbConfig, ...savedConfig };
+    }
+} catch (err) {
+    console.error('Error loading config file:', err);
+}
 
 // --- HARDCODE FALLBACK ---
 // Uncomment and fill in details to override settings manually
@@ -54,10 +67,27 @@ const getPool = () => pool;
 
 const setConfig = async (newConfig) => {
     dbConfig = { ...dbConfig, ...newConfig };
+
+    // Save to file
+    try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(dbConfig, null, 2));
+    } catch (err) {
+        console.error('Error saving config file:', err);
+    }
+
     if (pool) {
         await pool.close();
     }
     await connectDB();
+
+    // Also try to connect immediately to validate
+    try {
+        if (!mockMode) {
+            await connectDB();
+        }
+    } catch (e) {
+        console.log("Connection attempt failed during setConfig");
+    }
 };
 
 const getConfig = () => dbConfig;

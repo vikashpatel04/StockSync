@@ -17,6 +17,15 @@ router.post('/alerts/:id/dismiss', (req, res) => {
     }
 });
 
+router.post('/alerts/:id/not-online', (req, res) => {
+    const success = pollingService.markAsNotOnline(req.params.id);
+    if (success) {
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: 'Alert not found' });
+    }
+});
+
 // History
 router.get('/history', (req, res) => {
     res.json(pollingService.getHistory());

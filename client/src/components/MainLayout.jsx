@@ -5,6 +5,7 @@ import {
     HistoryOutlined,
     SettingOutlined,
     SyncOutlined,
+    LineChartOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 
@@ -29,6 +30,11 @@ const MainLayout = () => {
             key: '/history',
             icon: <HistoryOutlined />,
             label: 'History',
+        },
+        {
+            key: '/analytics',
+            icon: <LineChartOutlined />,
+            label: 'Analytics',
         },
         {
             key: '/settings',

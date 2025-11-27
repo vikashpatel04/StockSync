@@ -3,7 +3,8 @@ const db = require('../config/db');
 
 let pollingInterval = '*/5 * * * *'; // Default 5 minutes
 let task = null;
-let lastCheckTime = new Date(); // Initialize with current time
+let lastCheckTime = new Date();
+lastCheckTime.setHours(0, 0, 0, 0); // Start of today
 let alerts = []; // In-memory alert storage (replace with DB/File for persistence)
 let history = []; // In-memory history
 
@@ -16,6 +17,8 @@ const start = () => {
         await checkForNewSales();
     });
     console.log(`Polling service started with interval: ${pollingInterval}`);
+    // Run immediately on start
+    checkForNewSales();
 };
 
 const stop = () => {
@@ -49,15 +52,33 @@ const checkForNewSales = async () => {
         }
 
         // Real DB Query Logic
-        // This query needs to be dynamic based on user mapping configuration
-        // For now, we'll assume a standard structure or use the mapped columns
-        /*
+        // Fetching item-level details from 'sales' table
+        // Using GETDATE() to match server's local time for "today"
         const result = await db.query(`
-            SELECT * FROM Sales_Transactions 
-            WHERE Transaction_Timestamp > '${lastCheckTime.toISOString()}'
+            SELECT * FROM sales 
+            WHERE CAST(BILLDATE AS DATE) = CAST(GETDATE() AS DATE)
+            ORDER BY BILLDATE ASC
         `);
-        // Process result...
-        */
+
+        if (result.recordset && result.recordset.length > 0) {
+            result.recordset.forEach(item => {
+                // Create a unique ID for the alert based on BillNo and ItemID
+                const uniqueId = `${item.BILLNO}-${item.ITEMID}-${item.ENTRYORDER || Math.random()}`;
+
+                const newAlert = {
+                    id: uniqueId,
+                    billNo: item.BILLNO,
+                    sku: item.ITEMID, // Using ITEMID as SKU/Product ID
+                    productName: item.ITEMID, // Displaying ITEMID as product name for now
+                    qty: item.QTY,
+                    soldTime: new Date(item.BILLDATE),
+                    status: 'pending',
+                    details: item
+                };
+                addAlert(newAlert);
+                console.log('New Item Sold:', newAlert.sku);
+            });
+        }
 
         // Update lastCheckTime after successful query
         lastCheckTime = new Date();
@@ -68,8 +89,8 @@ const checkForNewSales = async () => {
 };
 
 const addAlert = (alert) => {
-    // Check for duplicates
-    const exists = alerts.find(a => a.sku === alert.sku && a.soldTime.getTime() === alert.soldTime.getTime());
+    // Check for duplicates by unique ID
+    const exists = alerts.find(a => a.id === alert.id);
     if (!exists) {
         alerts.push(alert);
     }
@@ -90,6 +111,19 @@ const dismissAlert = (id) => {
     return false;
 };
 
+const markAsNotOnline = (id) => {
+    const index = alerts.findIndex(a => a.id == id);
+    if (index > -1) {
+        const alert = alerts[index];
+        alert.status = 'not-online';
+        alert.syncedTime = new Date();
+        history.push(alert);
+        alerts.splice(index, 1);
+        return true;
+    }
+    return false;
+};
+
 const getHistory = () => history;
 
 module.exports = {
@@ -98,5 +132,6 @@ module.exports = {
     setPollingInterval,
     getAlerts,
     dismissAlert,
+    markAsNotOnline,
     getHistory
 };

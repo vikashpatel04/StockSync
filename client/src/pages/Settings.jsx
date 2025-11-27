@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Form, Input, Button, Steps, Select, Switch, InputNumber, message, Divider, Card } from 'antd';
-import { DatabaseOutlined, TableOutlined, SettingOutlined } from '@ant-design/icons';
+import { Typography, Form, Input, Button, Steps, Select, Switch, InputNumber, message, Divider, Card, Descriptions, Modal, Space, Tag } from 'antd';
+import { DatabaseOutlined, TableOutlined, SettingOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const { Title, Text } = Typography;
@@ -14,6 +14,8 @@ const Settings = () => {
     const [tables, setTables] = useState([]);
     const [columns, setColumns] = useState([]);
     const [messageApi, contextHolder] = message.useMessage();
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [settings, setSettings] = useState(null);
 
     useEffect(() => {
         fetchSettings();
@@ -23,6 +25,11 @@ const Settings = () => {
         try {
             const response = await axios.get('/api/settings');
             const { dbConfig, mockMode } = response.data;
+            setSettings({
+                dbConfig,
+                mockMode,
+                pollingInterval: 5 // Default or fetch if available
+            });
             form.setFieldsValue({
                 ...dbConfig,
                 mockMode,
@@ -92,6 +99,9 @@ const Settings = () => {
                 pollingInterval: values.pollingInterval
             });
             messageApi.success('Settings saved successfully!');
+            setIsEditMode(false);
+            setCurrentStep(0);
+            fetchSettings(); // Refresh settings
         } catch (error) {
             messageApi.error('Failed to save settings');
         } finally {
@@ -111,6 +121,25 @@ const Settings = () => {
 
     const prev = () => {
         setCurrentStep(currentStep - 1);
+    };
+
+    const handleEditClick = () => {
+        setIsEditMode(true);
+        setCurrentStep(0);
+        // Pre-load tables if we have a valid connection
+        if (settings?.dbConfig?.server) {
+            fetchTables();
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditMode(false);
+        setCurrentStep(0);
+        form.setFieldsValue({
+            ...settings.dbConfig,
+            mockMode: settings.mockMode,
+            pollingInterval: settings.pollingInterval || 5
+        });
     };
 
     const steps = [
@@ -194,35 +223,129 @@ const Settings = () => {
         },
     ];
 
+    // View-only settings display
+    const renderSettingsOverview = () => {
+        if (!settings) {
+            return <Card loading />;
+        }
+
+        const { dbConfig, mockMode, pollingInterval } = settings;
+
+        return (
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                <Card
+                    title={
+                        <Space>
+                            <DatabaseOutlined />
+                            <span>Database Connection</span>
+                        </Space>
+                    }
+                    extra={mockMode ? <Tag color="orange">Mock Mode Active</Tag> : <Tag color="green">Live Connection</Tag>}
+                >
+                    <Descriptions column={2} bordered>
+                        <Descriptions.Item label="Server">{dbConfig?.server || 'Not configured'}</Descriptions.Item>
+                        <Descriptions.Item label="Database">{dbConfig?.database || 'Not configured'}</Descriptions.Item>
+                        <Descriptions.Item label="Username">{dbConfig?.user || 'Not configured'}</Descriptions.Item>
+                        <Descriptions.Item label="Password">{'*'.repeat(dbConfig?.password?.length || 0)}</Descriptions.Item>
+                        <Descriptions.Item label="SSL Encryption" span={2}>
+                            {dbConfig?.options?.encrypt ? (
+                                <Tag color="green" icon={<CheckCircleOutlined />}>Enabled</Tag>
+                            ) : (
+                                <Tag color="default" icon={<CloseCircleOutlined />}>Disabled</Tag>
+                            )}
+                        </Descriptions.Item>
+                    </Descriptions>
+                </Card>
+
+                <Card
+                    title={
+                        <Space>
+                            <TableOutlined />
+                            <span>Table Mapping</span>
+                        </Space>
+                    }
+                >
+                    <Descriptions column={1} bordered>
+                        <Descriptions.Item label="Target Table">{dbConfig?.targetTable || 'Not configured'}</Descriptions.Item>
+                        <Descriptions.Item label="SKU Column">{dbConfig?.colSku || 'Not configured'}</Descriptions.Item>
+                        <Descriptions.Item label="Product Name Column">{dbConfig?.colName || 'Not configured'}</Descriptions.Item>
+                        <Descriptions.Item label="Timestamp Column">{dbConfig?.colTime || 'Not configured'}</Descriptions.Item>
+                    </Descriptions>
+                </Card>
+
+                <Card
+                    title={
+                        <Space>
+                            <SettingOutlined />
+                            <span>Preferences</span>
+                        </Space>
+                    }
+                >
+                    <Descriptions column={2} bordered>
+                        <Descriptions.Item label="Polling Interval">{pollingInterval || 5} minutes</Descriptions.Item>
+                        <Descriptions.Item label="Mock Mode">
+                            {mockMode ? (
+                                <Tag color="orange" icon={<CheckCircleOutlined />}>Enabled</Tag>
+                            ) : (
+                                <Tag color="default" icon={<CloseCircleOutlined />}>Disabled</Tag>
+                            )}
+                        </Descriptions.Item>
+                    </Descriptions>
+                </Card>
+            </Space>
+        );
+    };
+
     return (
         <div>
             {contextHolder}
-            <Title level={2}>Configuration Wizard</Title>
-            <Steps current={currentStep} items={steps} style={{ marginBottom: 40 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>Settings</Title>
+                {!isEditMode && (
+                    <Button type="primary" icon={<EditOutlined />} onClick={handleEditClick}>
+                        Edit Settings
+                    </Button>
+                )}
+            </div>
 
-            <Form form={form} layout="vertical">
-                <div style={{ minHeight: 300 }}>
-                    {steps[currentStep].content}
-                </div>
+            {!isEditMode ? (
+                renderSettingsOverview()
+            ) : (
+                <Modal
+                    title="Edit Configuration"
+                    open={isEditMode}
+                    onCancel={handleCancelEdit}
+                    footer={null}
+                    width={800}
+                    destroyOnClose
+                >
+                    <Steps current={currentStep} items={steps} style={{ marginBottom: 40 }} />
 
-                <div style={{ marginTop: 24, textAlign: 'center' }}>
-                    {currentStep > 0 && (
-                        <Button style={{ margin: '0 8px' }} onClick={prev}>
-                            Previous
-                        </Button>
-                    )}
-                    {currentStep < steps.length - 1 && (
-                        <Button type="primary" onClick={next}>
-                            Next
-                        </Button>
-                    )}
-                    {currentStep === steps.length - 1 && (
-                        <Button type="primary" onClick={handleSave} loading={loading}>
-                            Save Configuration
-                        </Button>
-                    )}
-                </div>
-            </Form>
+                    <Form form={form} layout="vertical">
+                        <div style={{ minHeight: 300 }}>
+                            {steps[currentStep].content}
+                        </div>
+
+                        <div style={{ marginTop: 24, textAlign: 'center' }}>
+                            {currentStep > 0 && (
+                                <Button style={{ margin: '0 8px' }} onClick={prev}>
+                                    Previous
+                                </Button>
+                            )}
+                            {currentStep < steps.length - 1 && (
+                                <Button type="primary" onClick={next}>
+                                    Next
+                                </Button>
+                            )}
+                            {currentStep === steps.length - 1 && (
+                                <Button type="primary" onClick={handleSave} loading={loading}>
+                                    Save Configuration
+                                </Button>
+                            )}
+                        </div>
+                    </Form>
+                </Modal>
+            )}
         </div>
     );
 };
